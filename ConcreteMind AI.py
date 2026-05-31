@@ -233,13 +233,30 @@ st.markdown("""
 #MainMenu, footer, header { visibility: hidden; }
 .stDeployButton { display: none; }
 
-/* ─── SIDEBAR — native Streamlit toggle, colors only ────────── */
+/* ─── SIDEBAR ────────────────────────────────────────────────── */
 [data-testid="stSidebar"] {
   background: var(--ink2) !important;
   border-right: 1px solid rgba(200,169,110,0.2) !important;
+  display: block !important;
+  visibility: visible !important;
+  transform: none !important;
+  min-width: 240px !important;
+  width: 240px !important;
+}
+/* Keep sidebar visible even when Streamlit marks it collapsed */
+[data-testid="stSidebar"][aria-expanded="false"] {
+  display: block !important;
+  transform: none !important;
+  visibility: visible !important;
+  width: 240px !important;
+  min-width: 240px !important;
 }
 [data-testid="stSidebar"] * {
   color: #D4C9B0 !important;
+}
+/* Hide the default toggle arrow since sidebar is always open */
+[data-testid="collapsedControl"] {
+  display: none !important;
 }
 [data-testid="stSidebar"] h3 {
   font-family: 'Syne', sans-serif !important;
