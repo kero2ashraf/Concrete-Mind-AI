@@ -246,6 +246,20 @@ st.markdown("""
 #MainMenu, footer, header { visibility: hidden; }
 .stDeployButton { display: none; }
 
+/* ─── KEEP SIDEBAR ALWAYS VISIBLE ───────────────────────────── */
+[data-testid="stSidebar"] {
+  display: block !important;
+  transform: none !important;
+  visibility: visible !important;
+  min-width: 240px !important;
+}
+[data-testid="stSidebar"][aria-expanded="false"] {
+  display: block !important;
+  transform: none !important;
+  width: 240px !important;
+  min-width: 240px !important;
+}
+
 /* ─── GLOBAL FONT ────────────────────────────────────────────── */
 html, body, [class*="css"] {
   font-family: 'Instrument Sans', sans-serif !important;
@@ -1053,8 +1067,11 @@ def ts():
     return datetime.now().strftime("%d/%m/%Y %H:%M")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SIDEBAR
+# SIDEBAR  —  uses on_click callback so the sidebar never collapses
 # ══════════════════════════════════════════════════════════════════════════════
+def _set_tab(t):
+    st.session_state.active_tab = t
+
 with st.sidebar:
     st.markdown("### 🏭 ConcreteMind")
     st.caption("AI platform · concrete & cement · streaming")
@@ -1065,10 +1082,14 @@ with st.sidebar:
                          ["Dashboard","QC Agent","Mix Design","Product","Docs Agent"]):
         lbl = AGENT_LABELS.get(tab, "")
         btn_label = f"{icon} {tab}" + (f"  `{lbl}`" if lbl else "")
-        if st.button(btn_label, key=f"nav_{tab}", use_container_width=True,
-                     type="primary" if st.session_state.active_tab == tab else "secondary"):
-            st.session_state.active_tab = tab
-            st.rerun()
+        st.button(
+            btn_label,
+            key=f"nav_{tab}",
+            use_container_width=True,
+            type="primary" if st.session_state.active_tab == tab else "secondary",
+            on_click=_set_tab,
+            args=(tab,),
+        )
 
     st.divider()
     st.markdown('<div class="sidebar-label">Region</div>', unsafe_allow_html=True)
