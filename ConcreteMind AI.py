@@ -233,68 +233,12 @@ st.markdown("""
 #MainMenu, footer, header { visibility: hidden; }
 .stDeployButton { display: none; }
 
-/* ─── SIDEBAR — COLLAPSIBLE ──────────────────────────────────── */
+/* ─── SIDEBAR — native Streamlit toggle, colors only ────────── */
 [data-testid="stSidebar"] {
   background: var(--ink2) !important;
   border-right: 1px solid rgba(200,169,110,0.2) !important;
-  transition: width 0.3s cubic-bezier(0.4,0,0.2,1) !important;
-  overflow: visible !important;
 }
-
-/* Expanded */
-[data-testid="stSidebar"][aria-expanded="true"] {
-  min-width: 260px !important;
-  width: 260px !important;
-}
-
-/* Collapsed — shrink to zero, let toggle peek out */
-[data-testid="stSidebar"][aria-expanded="false"] {
-  min-width: 0px !important;
-  width: 0px !important;
-  border-right: none !important;
-}
-/* Hide inner content when collapsed, but NOT the toggle button */
-[data-testid="stSidebar"][aria-expanded="false"] > div:first-child {
-  overflow: hidden !important;
-  width: 0px !important;
-}
-
-/* ─── TOGGLE ARROW — pinned to viewport left edge always ─────── */
-[data-testid="collapsedControl"] {
-  position: fixed !important;
-  left: 0 !important;
-  top: 50vh !important;
-  transform: translateY(-50%) !important;
-  z-index: 999999 !important;
-  display: flex !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  width: 24px !important;
-  height: 54px !important;
-  align-items: center !important;
-  justify-content: center !important;
-  background: var(--ink2) !important;
-  border: 1px solid rgba(200,169,110,0.5) !important;
-  border-left: none !important;
-  border-radius: 0 10px 10px 0 !important;
-  cursor: pointer !important;
-  box-shadow: 3px 0 14px rgba(0,0,0,0.3) !important;
-  transition: background 0.2s, box-shadow 0.2s !important;
-}
-[data-testid="collapsedControl"]:hover {
-  background: rgba(200,169,110,0.2) !important;
-  box-shadow: 3px 0 18px rgba(200,169,110,0.35) !important;
-}
-[data-testid="collapsedControl"] svg {
-  color: var(--sand) !important;
-  fill: var(--sand) !important;
-  width: 14px !important;
-  height: 14px !important;
-  flex-shrink: 0 !important;
-}
-
-/* Sidebar inner text — scoped to avoid touching the toggle */
-[data-testid="stSidebar"] > div:first-child * {
+[data-testid="stSidebar"] * {
   color: #D4C9B0 !important;
 }
 [data-testid="stSidebar"] h3 {
@@ -448,17 +392,7 @@ html, body, [class*="css"] {
   }
 }
 
-/* Tablet: allow sidebar to overlay content */
-@media (max-width: 1024px) {
-  [data-testid="stSidebar"][aria-expanded="true"] {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    height: 100vh !important;
-    z-index: 1000 !important;
-    box-shadow: 4px 0 24px rgba(0,0,0,0.35) !important;
-  }
-}
+
 
 /* ─── PAGE HEADINGS ──────────────────────────────────────────── */
 h1 {
