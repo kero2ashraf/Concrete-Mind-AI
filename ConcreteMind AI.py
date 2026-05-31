@@ -233,7 +233,7 @@ st.markdown("""
 #MainMenu, footer, header { visibility: hidden; }
 .stDeployButton { display: none; }
 
-/* ─── SIDEBAR — COLLAPSIBLE (native Streamlit toggle works) ──── */
+/* ─── SIDEBAR — COLLAPSIBLE ──────────────────────────────────── */
 [data-testid="stSidebar"] {
   background: var(--ink2) !important;
   border-right: 1px solid rgba(200,169,110,0.2) !important;
@@ -241,22 +241,63 @@ st.markdown("""
               width 0.3s cubic-bezier(0.4,0,0.2,1) !important;
 }
 
-/* Collapsed state — slide fully off-screen */
+/* Expanded state */
+[data-testid="stSidebar"][aria-expanded="true"] {
+  min-width: 260px !important;
+  width: 260px !important;
+  transform: translateX(0) !important;
+  visibility: visible !important;
+}
+
+/* Collapsed state — slide off-screen but keep toggle visible */
 [data-testid="stSidebar"][aria-expanded="false"] {
   width: 0px !important;
   min-width: 0px !important;
   overflow: hidden !important;
   transform: translateX(-100%) !important;
   border-right: none !important;
+  visibility: hidden !important;
 }
 
-/* Expanded state */
-[data-testid="stSidebar"][aria-expanded="true"] {
-  min-width: 260px !important;
-  width: 260px !important;
+/* ─── TOGGLE ARROW — always visible, never hidden ────────────── */
+/* This element sits OUTSIDE the sidebar in the DOM */
+[data-testid="collapsedControl"] {
+  visibility: visible !important;
+  display: flex !important;
+  opacity: 1 !important;
+  position: fixed !important;
+  left: 0 !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 99999 !important;
+  background: var(--ink2) !important;
+  border: 1px solid rgba(200,169,110,0.45) !important;
+  border-left: none !important;
+  border-radius: 0 10px 10px 0 !important;
+  width: 22px !important;
+  height: 52px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  box-shadow: 3px 0 12px rgba(0,0,0,0.25) !important;
+  transition: background 0.2s ease, box-shadow 0.2s ease !important;
+}
+[data-testid="collapsedControl"]:hover {
+  background: rgba(200,169,110,0.18) !important;
+  box-shadow: 3px 0 16px rgba(200,169,110,0.3) !important;
+}
+[data-testid="collapsedControl"] svg {
+  color: var(--sand) !important;
+  fill: var(--sand) !important;
+  width: 14px !important;
+  height: 14px !important;
 }
 
-[data-testid="stSidebar"] * {
+/* Sidebar text — scoped tightly so it never bleeds to toggle */
+[data-testid="stSidebar"] > div {
+  color: #D4C9B0 !important;
+}
+[data-testid="stSidebar"] > div * {
   color: #D4C9B0 !important;
 }
 [data-testid="stSidebar"] h3 {
@@ -327,34 +368,7 @@ st.markdown("""
   box-shadow: 0 4px 16px rgba(200,169,110,0.45) !important;
 }
 
-/* ─── SIDEBAR TOGGLE BUTTON (the arrow) ─────────────────────── */
-[data-testid="collapsedControl"] {
-  background: var(--ink2) !important;
-  border: 1px solid rgba(200,169,110,0.3) !important;
-  border-radius: 0 8px 8px 0 !important;
-  color: var(--sand) !important;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
-  width: 20px !important;
-  height: 48px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  cursor: pointer !important;
-  transition: all 0.2s ease !important;
-  box-shadow: 2px 0 8px rgba(0,0,0,0.15) !important;
-  z-index: 999 !important;
-}
-[data-testid="collapsedControl"]:hover {
-  background: rgba(200,169,110,0.15) !important;
-  border-color: var(--sand) !important;
-  box-shadow: 2px 0 12px rgba(200,169,110,0.25) !important;
-}
-[data-testid="collapsedControl"] svg {
-  color: var(--sand) !important;
-  width: 14px !important;
-  height: 14px !important;
-}
+
 
 /* ─── GLOBAL FONT ────────────────────────────────────────────── */
 html, body, [class*="css"] {
