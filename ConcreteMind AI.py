@@ -5,11 +5,6 @@ ConcreteMind AI Platform — Streamlit + OpenRouter
   Mix Design   → deepseek/deepseek-v4-flash:free
   Product      → google/gemma-4-31b-it:free
   Docs Agent   → nvidia/nemotron-3-super-120b-a12b:free
-
-Speed features:
-  • Streaming (word-by-word output)
-  • max_tokens capped at 1200
-  • Fast fallback chain
 """
 
 import re as _re
@@ -17,7 +12,6 @@ import streamlit as st
 import requests
 from datetime import datetime
 
-# ── page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="ConcreteMind AI",
     page_icon="🏭",
@@ -25,7 +19,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── session state ──────────────────────────────────────────────────────────────
 def init_state():
     defaults = {
         "qc_history":   [],
@@ -46,7 +39,6 @@ def init_state():
 
 init_state()
 
-# ── constants ──────────────────────────────────────────────────────────────────
 REGIONS = {
     "UAE / Gulf":     ["ACI 318", "BS 8500", "EN 206"],
     "Egypt":          ["ECP 203", "ASTM C39", "EN 206"],
@@ -62,7 +54,6 @@ REGIONS = {
     "Japan":          ["JIS A 5308", "JIS A 1108", "AIJ"],
 }
 
-# ── Models ─────────────────────────────────────────────────────────────────────
 AGENT_MODELS = {
     "QC Agent":   "meta-llama/llama-3.3-70b-instruct:free",
     "Mix Design": "deepseek/deepseek-v4-flash:free",
@@ -85,7 +76,6 @@ FALLBACK_CHAIN = [
 CONCRETE_CLASSES = ["C15", "C20", "C25", "C30", "C35", "C40", "C45", "C50"]
 STRENGTH_MAP = {c: int(c[1:]) for c in CONCRETE_CLASSES}
 
-# ── Cement catalogue ───────────────────────────────────────────────────────────
 CEMENT_TYPES = {
     "── Portland Cements (CEM I / ASTM)": [
         "OPC 42.5 N  — CEM I (General purpose)",
@@ -178,7 +168,6 @@ DOC_FIELDS = {
     ],
 }
 
-# ── Example data ───────────────────────────────────────────────────────────────
 QC_EXAMPLE = {
     "qc_prod": "Ready Mix C30 — Gulf Grade", "qc_batch": "B-2025-042",
     "qc_cs": 27.5, "qc_cs7": 18.2, "qc_slump": 120,
@@ -209,7 +198,7 @@ DOCS_EXAMPLE = {
     "d_notes": "Hot weather pour, truck delayed 45 minutes. Recommend investigation of w/c ratio.",
 }
 
-# ── BEAUTIFUL CSS ──────────────────────────────────────────────────────────────
+# ── CSS ────────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap');
@@ -237,8 +226,6 @@ st.markdown("""
   --warn-bg:     #FFFBF0;
   --warn-border: #F2C94C;
   --warn-text:   #7B5800;
-  --purple:      #5B4FCF;
-  --purple-bg:   #EFEDFC;
   --radius:      10px;
 }
 
@@ -246,42 +233,29 @@ st.markdown("""
 #MainMenu, footer, header { visibility: hidden; }
 .stDeployButton { display: none; }
 
-/* ─── KEEP SIDEBAR ALWAYS VISIBLE ───────────────────────────── */
-[data-testid="stSidebar"] {
-  display: block !important;
-  transform: none !important;
-  visibility: visible !important;
-  min-width: 240px !important;
-}
-[data-testid="stSidebar"][aria-expanded="false"] {
-  display: block !important;
-  transform: none !important;
-  width: 240px !important;
-  min-width: 240px !important;
-}
-
-/* ─── GLOBAL FONT ────────────────────────────────────────────── */
-html, body, [class*="css"] {
-  font-family: 'Instrument Sans', sans-serif !important;
-  color: var(--text);
-}
-
-/* ─── APP BACKGROUND ─────────────────────────────────────────── */
-.stApp {
-  background: var(--surface) !important;
-}
-.main .block-container {
-  background: transparent;
-  padding-top: 2rem !important;
-  padding-bottom: 3rem !important;
-  max-width: 1200px;
-}
-
-/* ─── SIDEBAR ────────────────────────────────────────────────── */
+/* ─── SIDEBAR — COLLAPSIBLE (native Streamlit toggle works) ──── */
 [data-testid="stSidebar"] {
   background: var(--ink2) !important;
   border-right: 1px solid rgba(200,169,110,0.2) !important;
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1),
+              width 0.3s cubic-bezier(0.4,0,0.2,1) !important;
 }
+
+/* Collapsed state — slide fully off-screen */
+[data-testid="stSidebar"][aria-expanded="false"] {
+  width: 0px !important;
+  min-width: 0px !important;
+  overflow: hidden !important;
+  transform: translateX(-100%) !important;
+  border-right: none !important;
+}
+
+/* Expanded state */
+[data-testid="stSidebar"][aria-expanded="true"] {
+  min-width: 260px !important;
+  width: 260px !important;
+}
+
 [data-testid="stSidebar"] * {
   color: #D4C9B0 !important;
 }
@@ -319,6 +293,7 @@ html, body, [class*="css"] {
   border-color: rgba(200,169,110,0.6) !important;
   box-shadow: 0 0 0 2px rgba(200,169,110,0.12) !important;
 }
+
 /* Sidebar nav buttons */
 [data-testid="stSidebar"] .stButton > button {
   background: transparent !important;
@@ -350,6 +325,128 @@ html, body, [class*="css"] {
   background: linear-gradient(135deg, #D4B87A, #B08850) !important;
   transform: translateX(2px);
   box-shadow: 0 4px 16px rgba(200,169,110,0.45) !important;
+}
+
+/* ─── SIDEBAR TOGGLE BUTTON (the arrow) ─────────────────────── */
+[data-testid="collapsedControl"] {
+  background: var(--ink2) !important;
+  border: 1px solid rgba(200,169,110,0.3) !important;
+  border-radius: 0 8px 8px 0 !important;
+  color: var(--sand) !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 20px !important;
+  height: 48px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.15) !important;
+  z-index: 999 !important;
+}
+[data-testid="collapsedControl"]:hover {
+  background: rgba(200,169,110,0.15) !important;
+  border-color: var(--sand) !important;
+  box-shadow: 2px 0 12px rgba(200,169,110,0.25) !important;
+}
+[data-testid="collapsedControl"] svg {
+  color: var(--sand) !important;
+  width: 14px !important;
+  height: 14px !important;
+}
+
+/* ─── GLOBAL FONT ────────────────────────────────────────────── */
+html, body, [class*="css"] {
+  font-family: 'Instrument Sans', sans-serif !important;
+  color: var(--text);
+}
+
+/* ─── APP BACKGROUND ─────────────────────────────────────────── */
+.stApp {
+  background: var(--surface) !important;
+}
+.main .block-container {
+  background: transparent;
+  padding-top: 2rem !important;
+  padding-bottom: 3rem !important;
+  max-width: 1200px;
+  /* Responsive padding */
+  padding-left: clamp(1rem, 4vw, 3rem) !important;
+  padding-right: clamp(1rem, 4vw, 3rem) !important;
+}
+
+/* ─── RESPONSIVE GRID ────────────────────────────────────────── */
+/* Stack columns on small screens */
+@media (max-width: 768px) {
+  .main .block-container {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    padding-top: 1rem !important;
+  }
+
+  /* Stack 2-column layouts vertically on mobile */
+  [data-testid="column"] {
+    width: 100% !important;
+    min-width: 100% !important;
+    flex: 1 1 100% !important;
+  }
+
+  /* Smaller headings on mobile */
+  h1 { font-size: 1.6rem !important; }
+  h2 { font-size: 1.1rem !important; }
+
+  /* Full-width metric cards */
+  [data-testid="metric-container"] {
+    padding: 14px 12px !important;
+  }
+  [data-testid="stMetricValue"] {
+    font-size: 1.6rem !important;
+  }
+
+  /* Tabs scroll horizontally */
+  .stTabs [data-baseweb="tab-list"] {
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .stTabs [data-baseweb="tab"] {
+    white-space: nowrap !important;
+    padding: 8px 14px !important;
+    font-size: 12px !important;
+  }
+
+  /* Buttons full width on mobile */
+  .stButton > button {
+    width: 100% !important;
+  }
+
+  /* Result card body max-height smaller on mobile */
+  .result-card-body {
+    max-height: 380px !important;
+    padding: 14px 14px !important;
+    font-size: 13px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  h1 { font-size: 1.35rem !important; }
+  .main .block-container {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+}
+
+/* Tablet: allow sidebar to overlay content */
+@media (max-width: 1024px) {
+  [data-testid="stSidebar"][aria-expanded="true"] {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    height: 100vh !important;
+    z-index: 1000 !important;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.35) !important;
+  }
 }
 
 /* ─── PAGE HEADINGS ──────────────────────────────────────────── */
@@ -502,12 +599,8 @@ h3 {
   font-weight: 600 !important;
   box-shadow: 0 1px 4px rgba(0,0,0,0.1) !important;
 }
-.stTabs [data-baseweb="tab-highlight"] {
-  background: transparent !important;
-}
-.stTabs [data-baseweb="tab-border"] {
-  display: none !important;
-}
+.stTabs [data-baseweb="tab-highlight"] { background: transparent !important; }
+.stTabs [data-baseweb="tab-border"]    { display: none !important; }
 
 /* ─── EXPANDERS ──────────────────────────────────────────────── */
 .streamlit-expanderHeader {
@@ -555,9 +648,7 @@ hr {
   font-family: 'Instrument Sans', sans-serif !important;
   font-size: 13.5px !important;
 }
-[data-baseweb="notification"] {
-  border-radius: 10px !important;
-}
+[data-baseweb="notification"] { border-radius: 10px !important; }
 
 /* ─── DOWNLOAD BUTTON ────────────────────────────────────────── */
 .stDownloadButton > button {
@@ -590,281 +681,157 @@ hr {
 
 /* ─── CUSTOM BADGE CLASSES ───────────────────────────────────── */
 .badge-model {
-  background: #EEEDFE;
-  color: #4C44B0;
-  border: 1px solid #C5C0F0;
-  padding: 3px 11px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-family: 'DM Mono', monospace;
-  font-weight: 500;
-  letter-spacing: 0.04em;
+  background: #EEEDFE; color: #4C44B0; border: 1px solid #C5C0F0;
+  padding: 3px 11px; border-radius: 20px; font-size: 11px;
+  font-family: 'DM Mono', monospace; font-weight: 500; letter-spacing: 0.04em;
 }
 .badge-pass {
-  background: var(--pass-bg);
-  color: var(--pass-text);
-  border: 1px solid var(--pass-border);
-  padding: 3px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-family: 'DM Mono', monospace;
-  font-weight: 600;
+  background: var(--pass-bg); color: var(--pass-text); border: 1px solid var(--pass-border);
+  padding: 3px 12px; border-radius: 20px; font-size: 12px;
+  font-family: 'DM Mono', monospace; font-weight: 600;
 }
 .badge-fail {
-  background: var(--fail-bg);
-  color: var(--fail-text);
-  border: 1px solid var(--fail-border);
-  padding: 3px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-family: 'DM Mono', monospace;
-  font-weight: 600;
+  background: var(--fail-bg); color: var(--fail-text); border: 1px solid var(--fail-border);
+  padding: 3px 12px; border-radius: 20px; font-size: 12px;
+  font-family: 'DM Mono', monospace; font-weight: 600;
 }
 .badge-warn {
-  background: var(--warn-bg);
-  color: var(--warn-text);
-  border: 1px solid var(--warn-border);
-  padding: 3px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-family: 'DM Mono', monospace;
-  font-weight: 600;
+  background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border);
+  padding: 3px 12px; border-radius: 20px; font-size: 12px;
+  font-family: 'DM Mono', monospace; font-weight: 600;
 }
 .sidebar-label {
-  font-family: 'DM Mono', monospace;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: #5A5244;
-  margin-bottom: 6px;
+  font-family: 'DM Mono', monospace; font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.14em;
+  color: #5A5244; margin-bottom: 6px;
 }
 .key-ok {
-  background: linear-gradient(135deg, #ECFDF5, #D1FAE5);
-  color: #065F46;
-  border: 1px solid #6EE7B7;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-family: 'DM Mono', monospace;
-  font-weight: 600;
+  background: linear-gradient(135deg, #ECFDF5, #D1FAE5); color: #065F46;
+  border: 1px solid #6EE7B7; padding: 8px 16px; border-radius: 8px;
+  font-size: 12px; font-family: 'DM Mono', monospace; font-weight: 600;
 }
 .key-bad {
-  background: linear-gradient(135deg, #FEF2F2, #FEE2E2);
-  color: #991B1B;
-  border: 1px solid #FCA5A5;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-family: 'DM Mono', monospace;
-  font-weight: 600;
+  background: linear-gradient(135deg, #FEF2F2, #FEE2E2); color: #991B1B;
+  border: 1px solid #FCA5A5; padding: 8px 16px; border-radius: 8px;
+  font-size: 12px; font-family: 'DM Mono', monospace; font-weight: 600;
 }
 .model-status-ok {
-  background: linear-gradient(135deg, #ECFDF5, #D1FAE5);
-  color: #065F46;
-  border: 1px solid #6EE7B7;
-  padding: 2px 10px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-family: 'DM Mono', monospace;
-  font-weight: 600;
-  display: inline-block;
+  background: linear-gradient(135deg, #ECFDF5, #D1FAE5); color: #065F46;
+  border: 1px solid #6EE7B7; padding: 2px 10px; border-radius: 20px;
+  font-size: 11px; font-family: 'DM Mono', monospace; font-weight: 600; display: inline-block;
 }
 .verdict-pass {
   background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
-  border-left: 4px solid #10B981;
-  border-radius: 10px;
-  padding: 16px 20px;
-  font-family: 'Syne', sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  color: #065F46;
-  margin: 14px 0;
-  box-shadow: 0 2px 12px rgba(16,185,129,0.12);
+  border-left: 4px solid #10B981; border-radius: 10px; padding: 16px 20px;
+  font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700;
+  color: #065F46; margin: 14px 0; box-shadow: 0 2px 12px rgba(16,185,129,0.12);
 }
 .verdict-fail {
   background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%);
-  border-left: 4px solid #EF4444;
-  border-radius: 10px;
-  padding: 16px 20px;
-  font-family: 'Syne', sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  color: #991B1B;
-  margin: 14px 0;
-  box-shadow: 0 2px 12px rgba(239,68,68,0.12);
+  border-left: 4px solid #EF4444; border-radius: 10px; padding: 16px 20px;
+  font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700;
+  color: #991B1B; margin: 14px 0; box-shadow: 0 2px 12px rgba(239,68,68,0.12);
 }
 .verdict-warn {
   background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
-  border-left: 4px solid #F59E0B;
-  border-radius: 10px;
-  padding: 16px 20px;
-  font-family: 'Syne', sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  color: #92400E;
-  margin: 14px 0;
-  box-shadow: 0 2px 12px rgba(245,158,11,0.12);
+  border-left: 4px solid #F59E0B; border-radius: 10px; padding: 16px 20px;
+  font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700;
+  color: #92400E; margin: 14px 0; box-shadow: 0 2px 12px rgba(245,158,11,0.12);
 }
 .result-card {
-  background: var(--white);
-  border: 1px solid #E2DDD4;
-  border-radius: 12px;
-  margin-top: 16px;
-  box-shadow: 0 2px 16px rgba(15,17,23,0.07), 0 0 0 1px rgba(200,169,110,0.08);
+  background: var(--white); border: 1px solid #E2DDD4; border-radius: 12px;
+  margin-top: 16px; box-shadow: 0 2px 16px rgba(15,17,23,0.07), 0 0 0 1px rgba(200,169,110,0.08);
   overflow: hidden;
 }
 .result-card-header {
   background: linear-gradient(90deg, #1C1E26 0%, #2C2E3A 100%);
-  color: #EDD9AA;
-  padding: 12px 20px;
-  font-size: 12px;
-  font-family: 'DM Mono', monospace;
-  letter-spacing: 0.06em;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  color: #EDD9AA; padding: 12px 20px; font-size: 12px;
+  font-family: 'DM Mono', monospace; letter-spacing: 0.06em;
+  display: flex; align-items: center; gap: 10px;
   border-bottom: 1px solid rgba(200,169,110,0.2);
 }
 .result-card-body {
-  padding: 20px 24px;
-  font-family: 'Instrument Sans', sans-serif;
-  font-size: 13.5px;
-  line-height: 1.85;
-  color: #2A2C38;
-  max-height: 560px;
-  overflow-y: auto;
+  padding: 20px 24px; font-family: 'Instrument Sans', sans-serif;
+  font-size: 13.5px; line-height: 1.85; color: #2A2C38;
+  max-height: 560px; overflow-y: auto;
 }
-.result-card-body b,
-.result-card-body strong {
-  color: #0F1117;
-  font-weight: 700;
-}
+.result-card-body b, .result-card-body strong { color: #0F1117; font-weight: 700; }
 .result-card-body table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 14px 0;
-  font-size: 12.5px;
-  border-radius: 8px;
-  overflow: hidden;
+  width: 100%; border-collapse: collapse; margin: 14px 0;
+  font-size: 12.5px; border-radius: 8px; overflow: hidden;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 .result-card-body th {
-  background: #1C1E26;
-  color: #EDD9AA;
-  padding: 10px 12px;
-  text-align: left;
-  font-family: 'DM Mono', monospace;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  background: #1C1E26; color: #EDD9AA; padding: 10px 12px;
+  text-align: left; font-family: 'DM Mono', monospace;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
 }
 .result-card-body td {
-  padding: 9px 12px;
-  border-bottom: 1px solid #F0EDE6;
-  vertical-align: top;
-  color: #2A2C38;
+  padding: 9px 12px; border-bottom: 1px solid #F0EDE6;
+  vertical-align: top; color: #2A2C38;
 }
-.result-card-body tr:nth-child(even) td {
-  background: #FAF8F4;
+.result-card-body tr:nth-child(even) td { background: #FAF8F4; }
+.result-card-body tr:hover td { background: #FDF5E8; }
+.result-card-body h3, .result-card-body h4 {
+  font-family: 'Syne', sans-serif; color: #8B6030; margin: 18px 0 8px;
+  font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.1em;
+  border-bottom: 1px solid #F0E8D8; padding-bottom: 5px;
 }
-.result-card-body tr:hover td {
-  background: #FDF5E8;
-}
-.result-card-body h3,
-.result-card-body h4 {
-  font-family: 'Syne', sans-serif;
-  color: #8B6030;
-  margin: 18px 0 8px;
-  font-size: 12.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  border-bottom: 1px solid #F0E8D8;
-  padding-bottom: 5px;
-}
-.result-card-body hr {
-  border: none;
-  border-top: 1px solid #F0EDE6;
-  margin: 14px 0;
-}
+.result-card-body hr { border: none; border-top: 1px solid #F0EDE6; margin: 14px 0; }
 .stream-box {
-  background: #FAF8F4;
-  border: 1px solid #E8E2D8;
-  border-radius: 10px;
-  padding: 16px 20px;
-  font-family: 'Instrument Sans', sans-serif;
-  font-size: 13.5px;
-  line-height: 1.85;
-  color: #2A2C38;
-  min-height: 80px;
-  white-space: pre-wrap;
-  box-shadow: inset 0 1px 4px rgba(0,0,0,0.04);
+  background: #FAF8F4; border: 1px solid #E8E2D8; border-radius: 10px;
+  padding: 16px 20px; font-family: 'Instrument Sans', sans-serif;
+  font-size: 13.5px; line-height: 1.85; color: #2A2C38;
+  min-height: 80px; white-space: pre-wrap; box-shadow: inset 0 1px 4px rgba(0,0,0,0.04);
 }
 
 /* ─── COLUMN CONTAINERS ──────────────────────────────────────── */
 [data-testid="column"] > div > div > div {
-  background: var(--white);
-  border-radius: var(--radius);
-  padding: 20px;
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-  margin-bottom: 2px;
+  background: var(--white); border-radius: var(--radius);
+  padding: 20px; border: 1px solid var(--border);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04); margin-bottom: 2px;
+}
+@media (max-width: 768px) {
+  [data-testid="column"] > div > div > div { padding: 14px; }
 }
 
 /* ─── NUMBER INPUT BUTTONS ───────────────────────────────────── */
 .stNumberInput button {
-  background: var(--surface2) !important;
-  border: 1px solid var(--border) !important;
-  color: var(--muted) !important;
-  border-radius: 6px !important;
+  background: var(--surface2) !important; border: 1px solid var(--border) !important;
+  color: var(--muted) !important; border-radius: 6px !important;
 }
 .stNumberInput button:hover {
-  background: var(--sand-light) !important;
-  color: var(--ink) !important;
+  background: var(--sand-light) !important; color: var(--ink) !important;
 }
 
 /* ─── CODE INLINE ────────────────────────────────────────────── */
 code {
-  background: #F0EBE0 !important;
-  color: #7A5C30 !important;
-  padding: 2px 7px !important;
-  border-radius: 5px !important;
-  font-family: 'DM Mono', monospace !important;
-  font-size: 12px !important;
+  background: #F0EBE0 !important; color: #7A5C30 !important;
+  padding: 2px 7px !important; border-radius: 5px !important;
+  font-family: 'DM Mono', monospace !important; font-size: 12px !important;
 }
 
-/* ─── INFO / SUCCESS / ERROR BOX ─────────────────────────────── */
+/* ─── NOTIFICATION BOXES ─────────────────────────────────────── */
 [data-baseweb="notification"][kind="info"] {
   background: linear-gradient(135deg, #EFF6FF, #DBEAFE) !important;
-  border: 1px solid #BFDBFE !important;
-  border-radius: 10px !important;
+  border: 1px solid #BFDBFE !important; border-radius: 10px !important;
 }
 [data-baseweb="notification"][kind="positive"] {
   background: linear-gradient(135deg, #ECFDF5, #D1FAE5) !important;
-  border: 1px solid #6EE7B7 !important;
-  border-radius: 10px !important;
+  border: 1px solid #6EE7B7 !important; border-radius: 10px !important;
 }
 [data-baseweb="notification"][kind="negative"] {
   background: linear-gradient(135deg, #FEF2F2, #FEE2E2) !important;
-  border: 1px solid #FCA5A5 !important;
-  border-radius: 10px !important;
+  border: 1px solid #FCA5A5 !important; border-radius: 10px !important;
 }
 
 /* ─── MARKDOWN TEXT ──────────────────────────────────────────── */
 .stMarkdown p {
   font-family: 'Instrument Sans', sans-serif !important;
-  font-size: 14px !important;
-  line-height: 1.7 !important;
-  color: var(--text) !important;
+  font-size: 14px !important; line-height: 1.7 !important; color: var(--text) !important;
 }
-.stMarkdown a {
-  color: var(--sand-dim) !important;
-  text-decoration: none !important;
-  font-weight: 500 !important;
-}
-.stMarkdown a:hover {
-  color: var(--sand) !important;
-  text-decoration: underline !important;
-}
+.stMarkdown a { color: var(--sand-dim) !important; text-decoration: none !important; font-weight: 500 !important; }
+.stMarkdown a:hover { color: var(--sand) !important; text-decoration: underline !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -908,167 +875,65 @@ def render_result(result, agent_label, model_used):
   <div class='result-card-body'>{body}</div>
 </div>"""
 
-# ── STREAMING API call ─────────────────────────────────────────────────────────
-def stream_openrouter(agent_key: str, system: str, user: str):
+# ── API calls ──────────────────────────────────────────────────────────────────
+def call_openrouter_fast(agent_key: str, system: str, user: str):
     api_key = st.session_state.api_key
     if not api_key:
-        yield "__NO_KEY__"
-        return
-
+        return None, "no_key"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type":  "application/json",
         "HTTP-Referer":  "https://concretemind.app",
         "X-Title":       "ConcreteMind AI",
     }
-
-    primary   = AGENT_MODELS[agent_key]
+    primary    = AGENT_MODELS[agent_key]
     all_models = [primary] + [m for m in FALLBACK_CHAIN if m != primary]
-
-    def try_stream(model_id):
-        payload = {
-            "model":       model_id,
-            "temperature": 0.2,
-            "max_tokens":  1200,
-            "stream":      True,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user",   "content": user},
-            ],
-        }
-        resp = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers=headers, json=payload,
-            stream=True, timeout=60,
-        )
-        if resp.status_code == 429:
-            return None, "rate_limited"
-        if resp.status_code != 200:
-            return None, f"HTTP {resp.status_code}"
-        return resp, None
-
+    import json, time
     for model_id in all_models:
-        resp, err = try_stream(model_id)
-        if err:
-            if err == "rate_limited":
-                st.toast(f"⏳ {model_id.split('/')[-1]} rate-limited — trying next model…", icon="⏳")
-                continue
-            continue
-
-        full_text = ""
         try:
-            for raw_line in resp.iter_lines():
-                if not raw_line:
-                    continue
+            payload = {
+                "model": model_id, "temperature": 0.2, "max_tokens": 1200, "stream": True,
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            }
+            r = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers, json=payload, stream=True, timeout=60,
+            )
+        except Exception:
+            continue
+        if r.status_code == 429:
+            st.toast(f"⏳ {model_id.split('/')[-1]} rate-limited — rotating…", icon="⏳")
+            time.sleep(5); continue
+        if r.status_code != 200:
+            continue
+        full_text = ""
+        placeholder = st.empty()
+        try:
+            for raw_line in r.iter_lines():
+                if not raw_line: continue
                 line = raw_line.decode("utf-8") if isinstance(raw_line, bytes) else raw_line
-                if line.startswith("data: "):
-                    line = line[6:]
-                if line == "[DONE]":
-                    break
+                if line.startswith("data: "): line = line[6:]
+                if line == "[DONE]": break
                 try:
-                    import json
                     chunk = json.loads(line)
                     delta = chunk.get("choices", [{}])[0].get("delta", {})
                     content = delta.get("content") or delta.get("reasoning") or ""
                     if content:
                         full_text += content
-                        yield content
-                except Exception:
-                    continue
-        except Exception as e:
-            continue
-
-        if full_text.strip():
-            yield f"__DONE__{model_id}"
-            return
-
-    yield "__FAILED__"
-
-
-def call_openrouter_fast(agent_key: str, system: str, user: str):
-    api_key = st.session_state.api_key
-    if not api_key:
-        return None, "no_key"
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type":  "application/json",
-        "HTTP-Referer":  "https://concretemind.app",
-        "X-Title":       "ConcreteMind AI",
-    }
-
-    primary    = AGENT_MODELS[agent_key]
-    all_models = [primary] + [m for m in FALLBACK_CHAIN if m != primary]
-
-    import json, time
-
-    def try_one_stream(model_id):
-        payload = {
-            "model": model_id, "temperature": 0.2, "max_tokens": 1200, "stream": True,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user",   "content": user},
-            ],
-        }
-        r = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers=headers, json=payload, stream=True, timeout=60,
-        )
-        return r
-
-    for model_id in all_models:
-        try:
-            r = try_one_stream(model_id)
-        except Exception:
-            continue
-
-        if r.status_code == 429:
-            st.toast(f"⏳ {model_id.split('/')[-1]} rate-limited — rotating…", icon="⏳")
-            time.sleep(5)
-            continue
-        if r.status_code != 200:
-            continue
-
-        full_text = ""
-        placeholder = st.empty()
-
-        try:
-            for raw_line in r.iter_lines():
-                if not raw_line:
-                    continue
-                line = raw_line.decode("utf-8") if isinstance(raw_line, bytes) else raw_line
-                if line.startswith("data: "):
-                    line = line[6:]
-                if line == "[DONE]":
-                    break
-                try:
-                    chunk = json.loads(line)
-                    delta   = chunk.get("choices", [{}])[0].get("delta", {})
-                    content = delta.get("content") or delta.get("reasoning") or ""
-                    if content:
-                        full_text += content
-                        placeholder.markdown(
-                            f"<div class='stream-box'>{full_text}▌</div>",
-                            unsafe_allow_html=True,
-                        )
+                        placeholder.markdown(f"<div class='stream-box'>{full_text}▌</div>", unsafe_allow_html=True)
                 except Exception:
                     continue
         except Exception:
             continue
-
         if full_text.strip():
             placeholder.empty()
             return full_text.strip(), model_id
-
     return None, "all_models_failed"
-
 
 def ts():
     return datetime.now().strftime("%d/%m/%Y %H:%M")
 
-# ══════════════════════════════════════════════════════════════════════════════
-# SIDEBAR  —  uses on_click callback so the sidebar never collapses
-# ══════════════════════════════════════════════════════════════════════════════
+# ── SIDEBAR ────────────────────────────────────────────────────────────────────
 def _set_tab(t):
     st.session_state.active_tab = t
 
@@ -1076,55 +941,41 @@ with st.sidebar:
     st.markdown("### 🏭 ConcreteMind")
     st.caption("AI platform · concrete & cement · streaming")
     st.divider()
-
     st.markdown('<div class="sidebar-label">Agents</div>', unsafe_allow_html=True)
     for icon, tab in zip(["📊","🔬","⚗️","📦","📄"],
                          ["Dashboard","QC Agent","Mix Design","Product","Docs Agent"]):
         lbl = AGENT_LABELS.get(tab, "")
         btn_label = f"{icon} {tab}" + (f"  `{lbl}`" if lbl else "")
-        st.button(
-            btn_label,
-            key=f"nav_{tab}",
-            use_container_width=True,
-            type="primary" if st.session_state.active_tab == tab else "secondary",
-            on_click=_set_tab,
-            args=(tab,),
-        )
-
+        st.button(btn_label, key=f"nav_{tab}", use_container_width=True,
+                  type="primary" if st.session_state.active_tab == tab else "secondary",
+                  on_click=_set_tab, args=(tab,))
     st.divider()
     st.markdown('<div class="sidebar-label">Region</div>', unsafe_allow_html=True)
     region = st.selectbox("Region", list(REGIONS.keys()), label_visibility="collapsed")
     stds   = REGIONS[region]
     st.markdown("  ".join([f"`{s}`" for s in stds]))
-
     st.divider()
     st.markdown('<div class="sidebar-label">OpenRouter API Key</div>', unsafe_allow_html=True)
-
     def _save_key():
         st.session_state.api_key = st.session_state._key_input.strip()
-
-    st.text_input(
-        "API Key", type="password", placeholder="sk-or-v1-...",
-        label_visibility="collapsed", key="_key_input",
-        value=st.session_state.api_key, on_change=_save_key,
-        help="Free key at openrouter.ai",
-    )
+    st.text_input("API Key", type="password", placeholder="sk-or-v1-...",
+                  label_visibility="collapsed", key="_key_input",
+                  value=st.session_state.api_key, on_change=_save_key,
+                  help="Free key at openrouter.ai")
     if st.session_state.api_key:
         st.markdown('<div class="key-ok">🔑 Key saved — streaming ready</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="key-bad">⚠️ No key — add yours above</div>', unsafe_allow_html=True)
         st.caption("[Get free key → openrouter.ai](https://openrouter.ai)")
-
     st.divider()
     st.markdown('<div class="sidebar-label">Active Models (streaming)</div>', unsafe_allow_html=True)
     for icon, name, note in [
-        ("🔬 QC",      "llama-3.3-70b",    "fast ⚡"),
-        ("⚗️ Mix",    "deepseek-v4-flash", "fast ⚡"),
-        ("📦 Product", "gemma-4-31b",       "fast ⚡"),
-        ("📄 Docs",    "llama-3.3-70b",    "fast ⚡"),
+        ("🔬 QC", "llama-3.3-70b", "fast ⚡"),
+        ("⚗️ Mix", "deepseek-v4-flash", "fast ⚡"),
+        ("📦 Product", "gemma-4-31b", "fast ⚡"),
+        ("📄 Docs", "llama-3.3-70b", "fast ⚡"),
     ]:
         st.caption(f"{icon} `{name}` — {note}")
-
 
 def need_key():
     if not st.session_state.api_key:
@@ -1132,10 +983,7 @@ def need_key():
         return True
     return False
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# DASHBOARD
-# ══════════════════════════════════════════════════════════════════════════════
+# ── DASHBOARD ──────────────────────────────────────────────────────────────────
 if st.session_state.active_tab == "Dashboard":
     c1, c2 = st.columns([6, 1])
     with c1:
@@ -1147,31 +995,25 @@ if st.session_state.active_tab == "Dashboard":
             for k in ("qc_history","mix_history","prod_history","docs_history"):
                 st.session_state[k] = []
             st.rerun()
-
-    qc_h  = st.session_state.qc_history
-    tot   = len(qc_h)
+    qc_h   = st.session_state.qc_history
+    tot    = len(qc_h)
     passed = sum(1 for t in qc_h if t.get("status") == "PASS")
     m1,m2,m3,m4 = st.columns(4)
     m1.metric("QC Tests",  tot)
     m2.metric("✅ Passed", passed)
     m3.metric("❌ Failed",  tot - passed)
     m4.metric("Pass rate", f"{round(passed/tot*100)}%" if tot else "—")
-
     st.divider()
     cl, cr = st.columns(2)
     with cl:
         st.subheader("🤖 Agents & Models")
         icons_map = {"QC Agent":"🔬","Mix Design":"⚗️","Product":"📦","Docs Agent":"📄"}
         for agent, lbl in AGENT_LABELS.items():
-            st.markdown(
-                f"{icons_map[agent]} **{agent}** — `{lbl}` "
-                f"<span class='model-status-ok'>streaming ⚡</span>",
-                unsafe_allow_html=True)
+            st.markdown(f"{icons_map[agent]} **{agent}** — `{lbl}` <span class='model-status-ok'>streaming ⚡</span>", unsafe_allow_html=True)
     with cr:
         st.subheader("🌍 Standards by Region")
         for rn, rs in list(REGIONS.items())[:6]:
             st.markdown(f"**{rn}**: {' · '.join(rs)}")
-
     st.divider()
     st.subheader("🕐 Recent QC Tests")
     if not qc_h:
@@ -1179,31 +1021,19 @@ if st.session_state.active_tab == "Dashboard":
     else:
         for t in reversed(qc_h[-5:]):
             bc = "badge-pass" if t["status"]=="PASS" else ("badge-warn" if t["status"]=="WARNING" else "badge-fail")
-            st.markdown(
-                f"**{t['product']}** · Batch `{t['batch']}` · {t['cs']} / {t['req']} MPa · "
-                f"`{t['std']}` · <span class='{bc}'>{t['status']}</span> · "
-                f"<span class='badge-model'>{t['model']}</span>",
-                unsafe_allow_html=True)
+            st.markdown(f"**{t['product']}** · Batch `{t['batch']}` · {t['cs']} / {t['req']} MPa · `{t['std']}` · <span class='{bc}'>{t['status']}</span> · <span class='badge-model'>{t['model']}</span>", unsafe_allow_html=True)
             st.caption(t["date"]); st.markdown("---")
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# QC AGENT
-# ══════════════════════════════════════════════════════════════════════════════
+# ── QC AGENT ───────────────────────────────────────────────────────────────────
 elif st.session_state.active_tab == "QC Agent":
     st.title("🔬 QC Agent")
-    st.markdown(f"`{region}` · <span class='badge-model'>llama-3.3-70b · streaming ⚡</span>",
-                unsafe_allow_html=True)
-
+    st.markdown(f"`{region}` · <span class='badge-model'>llama-3.3-70b · streaming ⚡</span>", unsafe_allow_html=True)
     tab_new, tab_hist = st.tabs(["🧪 New Test", "📋 History"])
-
     with tab_new:
         with st.expander("💡 Load example — C30 hot-weather pour UAE", expanded=False):
             if st.button("⚡ Load example", key="qc_load_ex"):
-                for k, v in QC_EXAMPLE.items():
-                    st.session_state[k] = v
+                for k, v in QC_EXAMPLE.items(): st.session_state[k] = v
                 st.rerun()
-
         col_a, col_b = st.columns(2)
         with col_a:
             st.subheader("Sample Information")
@@ -1219,30 +1049,17 @@ elif st.session_state.active_tab == "QC Agent":
             qc_wc    = st.number_input("W/C ratio", min_value=0.0, max_value=1.0, step=0.01, key="qc_wc")
             qc_air   = st.number_input("Air content (%)", min_value=0.0, step=0.1, key="qc_air")
             qc_temp  = st.number_input("Temperature (°C)", step=1.0, key="qc_temp")
-
         qc_notes = st.text_area("Additional notes", placeholder="Site conditions, curing notes...", key="qc_notes")
-
         if st.button("⚡ Analyze (streaming)", type="primary", key="qc_run"):
             if need_key(): pass
             elif not qc_prod or not qc_cs:
                 st.error("Enter product name and 28d compressive strength.")
             else:
                 req = STRENGTH_MAP[qc_cls]
-                sys_p = (
-                    f"You are a senior QC engineer for concrete and cement. "
-                    f"Evaluate strictly against {qc_std} and codes: {', '.join(stds)}. "
-                    f"Be concise. Format: VERDICT → ANALYSIS (per parameter) → CORRECTIVE ACTIONS → RECOMMENDATIONS."
-                )
-                usr_p = (
-                    f"Region: {region} | Product: {qc_prod} | Batch: {qc_batch or 'N/A'} | "
-                    f"Class: {qc_cls} | Required: {req} MPa | Standard: {qc_std}\n"
-                    f"CS(28d)={qc_cs} MPa | CS(7d)={qc_cs7 or 'N/A'} | "
-                    f"Slump={qc_slump}mm | W/C={qc_wc} | Air={qc_air}% | Temp={qc_temp}°C\n"
-                    f"Notes: {qc_notes or 'None'}"
-                )
+                sys_p = (f"You are a senior QC engineer for concrete and cement. Evaluate strictly against {qc_std} and codes: {', '.join(stds)}. Be concise. Format: VERDICT → ANALYSIS (per parameter) → CORRECTIVE ACTIONS → RECOMMENDATIONS.")
+                usr_p = (f"Region: {region} | Product: {qc_prod} | Batch: {qc_batch or 'N/A'} | Class: {qc_cls} | Required: {req} MPa | Standard: {qc_std}\nCS(28d)={qc_cs} MPa | CS(7d)={qc_cs7 or 'N/A'} | Slump={qc_slump}mm | W/C={qc_wc} | Air={qc_air}% | Temp={qc_temp}°C\nNotes: {qc_notes or 'None'}")
                 with st.spinner("Connecting…"):
                     result, used_model = call_openrouter_fast("QC Agent", sys_p, usr_p)
-
                 if result:
                     status = "PASS" if qc_cs >= req else "FAIL"
                     if "WARNING" in result.upper(): status = "WARNING"
@@ -1254,74 +1071,45 @@ elif st.session_state.active_tab == "QC Agent":
                     else:
                         st.markdown(f"<div class='verdict-fail'>❌ FAIL — {qc_cs} MPa < {req} MPa ({qc_std})</div>", unsafe_allow_html=True)
                     st.markdown(render_result(result, "QC Agent Analysis", short), unsafe_allow_html=True)
-                    st.session_state.qc_history.append({
-                        "product": qc_prod, "batch": qc_batch or "N/A",
-                        "cs": qc_cs, "req": req, "slump": qc_slump, "wc": qc_wc,
-                        "status": status, "std": qc_std, "analysis": result,
-                        "date": ts(), "model": short,
-                    })
+                    st.session_state.qc_history.append({"product": qc_prod, "batch": qc_batch or "N/A", "cs": qc_cs, "req": req, "slump": qc_slump, "wc": qc_wc, "status": status, "std": qc_std, "analysis": result, "date": ts(), "model": short})
                 else:
-                    st.error(f"All models failed or rate-limited. Last error: {used_model}\n\nWait 30 sec and retry.")
-
+                    st.error(f"All models failed or rate-limited. Wait 30 sec and retry.")
     with tab_hist:
         _, col_h2 = st.columns([5, 1])
         with col_h2:
-            if st.button("🗑 Clear", key="qc_clrhist"):
-                st.session_state.qc_history = []; st.rerun()
+            if st.button("🗑 Clear", key="qc_clrhist"): st.session_state.qc_history = []; st.rerun()
         if not st.session_state.qc_history:
             st.info("No test history yet.")
         for i, item in enumerate(reversed(st.session_state.qc_history)):
             bc = "badge-pass" if item["status"]=="PASS" else ("badge-warn" if item["status"]=="WARNING" else "badge-fail")
             with st.expander(f"**{item['product']}** — {item['date']} — {item['status']}"):
-                st.markdown(
-                    f"Batch `{item['batch']}` · {item['cs']} / {item['req']} MPa · "
-                    f"`{item['std']}` · <span class='{bc}'>{item['status']}</span> · "
-                    f"<span class='badge-model'>{item['model']}</span>", unsafe_allow_html=True)
+                st.markdown(f"Batch `{item['batch']}` · {item['cs']} / {item['req']} MPa · `{item['std']}` · <span class='{bc}'>{item['status']}</span> · <span class='badge-model'>{item['model']}</span>", unsafe_allow_html=True)
                 st.markdown(render_result(item["analysis"], "QC Agent", item["model"]), unsafe_allow_html=True)
                 real = len(st.session_state.qc_history)-1-i
                 ca, cb = st.columns([1,5])
                 with ca:
-                    if st.button("🗑 Del", key=f"qc_del_{i}"):
-                        st.session_state.qc_history.pop(real); st.rerun()
+                    if st.button("🗑 Del", key=f"qc_del_{i}"): st.session_state.qc_history.pop(real); st.rerun()
                 with cb:
-                    st.download_button("⬇ .txt", data=item["analysis"],
-                        file_name=f"qc_{item['product'].replace(' ','_')}.txt", key=f"qc_dl_{i}")
+                    st.download_button("⬇ .txt", data=item["analysis"], file_name=f"qc_{item['product'].replace(' ','_')}.txt", key=f"qc_dl_{i}")
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# MIX DESIGN
-# ══════════════════════════════════════════════════════════════════════════════
+# ── MIX DESIGN ─────────────────────────────────────────────────────────────────
 elif st.session_state.active_tab == "Mix Design":
     st.title("⚗️ Mix Design Agent")
-    st.markdown(f"`{region}` · <span class='badge-model'>deepseek-v4-flash · streaming ⚡</span>",
-                unsafe_allow_html=True)
-
+    st.markdown(f"`{region}` · <span class='badge-model'>deepseek-v4-flash · streaming ⚡</span>", unsafe_allow_html=True)
     tab_new, tab_hist = st.tabs(["🧱 Design New Mix", "📋 History"])
-
     with tab_new:
         with st.expander("💡 Load example — C40 Marine Mix UAE", expanded=False):
             if st.button("⚡ Load example", key="mix_load_ex"):
-                for k, v in MIX_EXAMPLE.items():
-                    st.session_state[k] = v
+                for k, v in MIX_EXAMPLE.items(): st.session_state[k] = v
                 st.rerun()
-
         col_a, col_b = st.columns(2)
         with col_a:
             st.subheader("Requirements")
             m_name = st.text_input("Design name / code", placeholder="e.g. MIX-C40-MARINE-UAE", key="m_name")
             m_str  = st.number_input("Target strength (MPa)", step=1, key="m_str")
-            m_std  = st.selectbox("Design standard",
-                ["ACI 211.1","EN 206","BS 8500","IS 10262","ECP 203","CSA A23.1"], key="m_std")
-            m_exp  = st.selectbox("Exposure class", [
-                "X0 — no exposure","XC1 — carbonation dry","XC2 — carbonation wet",
-                "XS1 — marine airborne","XS2 — marine submerged",
-                "XF — freeze-thaw","XA — chemical attack","Hot weather >45°C (Gulf)",
-            ], key="m_exp")
-            m_app  = st.selectbox("Application", [
-                "Ready mix concrete","Precast elements","Foundations",
-                "Columns & beams","Slabs","Paving / roads","Marine / coastal","Mass concrete",
-            ], key="m_app")
-
+            m_std  = st.selectbox("Design standard", ["ACI 211.1","EN 206","BS 8500","IS 10262","ECP 203","CSA A23.1"], key="m_std")
+            m_exp  = st.selectbox("Exposure class", ["X0 — no exposure","XC1 — carbonation dry","XC2 — carbonation wet","XS1 — marine airborne","XS2 — marine submerged","XF — freeze-thaw","XA — chemical attack","Hot weather >45°C (Gulf)"], key="m_exp")
+            m_app  = st.selectbox("Application", ["Ready mix concrete","Precast elements","Foundations","Columns & beams","Slabs","Paving / roads","Marine / coastal","Mass concrete"], key="m_app")
         with col_b:
             st.subheader("Materials")
             m_cem_sel = st.selectbox("Cement type", CEMENT_OPTIONS, key="m_cem_sel")
@@ -1332,57 +1120,33 @@ elif st.session_state.active_tab == "Mix Design":
                 m_cem = m_cem_custom.strip() or "Not specified"
             else:
                 m_cem = m_cem_sel
-                _hints = {"SRC":"💡 Sulfate resistant — good for UAE marine.", "HAC":"⚠️ Specialist use only.",
-                          "CEM III":"💡 Low heat — good for mass concrete.", "GGBS":"💡 30–70% replacement; reduces heat.",
-                          "Silica Fume":"💡 5–15% replacement; improves density."}
+                _hints = {"SRC":"💡 Sulfate resistant — good for UAE marine.", "HAC":"⚠️ Specialist use only.", "CEM III":"💡 Low heat — good for mass concrete.", "GGBS":"💡 30–70% replacement; reduces heat.", "Silica Fume":"💡 5–15% replacement; improves density."}
                 for kw, hint in _hints.items():
                     if kw.lower() in m_cem.lower(): st.caption(hint); break
             m_agg  = st.selectbox("Max aggregate size (mm)", ["10","14","20","25","40"], index=2, key="m_agg")
-            m_work = st.selectbox("Workability", [
-                "25–50 mm stiff","50–100 mm medium",
-                "100–150 mm high","150–200 mm pumped","Flow >200 mm SCC",
-            ], index=2, key="m_work")
+            m_work = st.selectbox("Workability", ["25–50 mm stiff","50–100 mm medium","100–150 mm high","150–200 mm pumped","Flow >200 mm SCC"], index=2, key="m_work")
             m_adm  = st.text_input("Admixtures", placeholder="e.g. Superplasticizer, Silica Fume", key="m_adm")
             m_spec = st.text_area("Special requirements", placeholder="e.g. Hot weather, low heat...", key="m_spec")
-
         if st.button("⚡ Generate mix design (streaming)", type="primary", key="mix_run"):
             if need_key(): pass
-            elif not m_name:
-                st.error("Enter a design name.")
+            elif not m_name: st.error("Enter a design name.")
             else:
-                sys_p = (
-                    f"You are an expert concrete mix design engineer. Use {m_std} for {region}. "
-                    f"Codes: {', '.join(stds)}. Be concise and numerical. "
-                    f"Output: MIX DESIGN TABLE per m³ (cement kg, water kg, fine agg kg, coarse agg kg, "
-                    f"admixtures, w/c, air%) then NOTES & RECOMMENDATIONS."
-                )
-                usr_p = (
-                    f"Design: {m_name} | Target: {m_str} MPa | Std: {m_std} | Region: {region}\n"
-                    f"Exposure: {m_exp} | App: {m_app}\n"
-                    f"Cement: {m_cem} | MaxAgg: {m_agg}mm | Workability: {m_work}\n"
-                    f"Admixtures: {m_adm or 'None'} | Special: {m_spec or 'None'}"
-                )
+                sys_p = (f"You are an expert concrete mix design engineer. Use {m_std} for {region}. Codes: {', '.join(stds)}. Be concise and numerical. Output: MIX DESIGN TABLE per m³ (cement kg, water kg, fine agg kg, coarse agg kg, admixtures, w/c, air%) then NOTES & RECOMMENDATIONS.")
+                usr_p = (f"Design: {m_name} | Target: {m_str} MPa | Std: {m_std} | Region: {region}\nExposure: {m_exp} | App: {m_app}\nCement: {m_cem} | MaxAgg: {m_agg}mm | Workability: {m_work}\nAdmixtures: {m_adm or 'None'} | Special: {m_spec or 'None'}")
                 with st.spinner("Connecting…"):
                     result, used_model = call_openrouter_fast("Mix Design", sys_p, usr_p)
                 if result:
                     short = used_model.split("/")[-1].replace(":free","")
-                    st.markdown(f"<div class='verdict-pass'>✅ Mix design generated — <code>{short}</code></div>",
-                                unsafe_allow_html=True)
+                    st.markdown(f"<div class='verdict-pass'>✅ Mix design generated — <code>{short}</code></div>", unsafe_allow_html=True)
                     st.markdown(render_result(result, "Mix Design", short), unsafe_allow_html=True)
-                    st.download_button("⬇ Download .txt", data=result,
-                        file_name=f"mix_{m_name.replace(' ','_')}.txt")
-                    st.session_state.mix_history.append({
-                        "name": m_name, "str": m_str, "std": m_std,
-                        "notes": result, "date": ts(), "model": short,
-                    })
+                    st.download_button("⬇ Download .txt", data=result, file_name=f"mix_{m_name.replace(' ','_')}.txt")
+                    st.session_state.mix_history.append({"name": m_name, "str": m_str, "std": m_std, "notes": result, "date": ts(), "model": short})
                 else:
-                    st.error(f"All models failed. Wait 30 sec and retry.")
-
+                    st.error("All models failed. Wait 30 sec and retry.")
     with tab_hist:
         _, col_h2 = st.columns([5, 1])
         with col_h2:
-            if st.button("🗑 Clear", key="mix_clrhist"):
-                st.session_state.mix_history = []; st.rerun()
+            if st.button("🗑 Clear", key="mix_clrhist"): st.session_state.mix_history = []; st.rerun()
         if not st.session_state.mix_history:
             st.info("No saved designs yet.")
         for i, item in enumerate(reversed(st.session_state.mix_history)):
@@ -1392,93 +1156,52 @@ elif st.session_state.active_tab == "Mix Design":
                 real = len(st.session_state.mix_history)-1-i
                 ca, cb = st.columns([1,5])
                 with ca:
-                    if st.button("🗑 Del", key=f"mix_del_{i}"):
-                        st.session_state.mix_history.pop(real); st.rerun()
+                    if st.button("🗑 Del", key=f"mix_del_{i}"): st.session_state.mix_history.pop(real); st.rerun()
                 with cb:
-                    st.download_button("⬇ .txt", data=item["notes"],
-                        file_name=f"mix_{item['name'].replace(' ','_')}.txt", key=f"mix_dl_{i}")
+                    st.download_button("⬇ .txt", data=item["notes"], file_name=f"mix_{item['name'].replace(' ','_')}.txt", key=f"mix_dl_{i}")
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# PRODUCT AGENT
-# ══════════════════════════════════════════════════════════════════════════════
+# ── PRODUCT AGENT ──────────────────────────────────────────────────────────────
 elif st.session_state.active_tab == "Product":
     st.title("📦 Product Agent")
-    st.markdown(f"`{region}` · <span class='badge-model'>gemma-4-31b · streaming ⚡</span>",
-                unsafe_allow_html=True)
-
+    st.markdown(f"`{region}` · <span class='badge-model'>gemma-4-31b · streaming ⚡</span>", unsafe_allow_html=True)
     tab_new, tab_hist = st.tabs(["🏗 Recommend", "📋 History"])
-
     with tab_new:
         with st.expander("💡 Load example — 40-floor Dubai Marina tower", expanded=False):
             if st.button("⚡ Load example", key="prod_load_ex"):
-                for k, v in PROD_EXAMPLE.items():
-                    st.session_state[k] = v
+                for k, v in PROD_EXAMPLE.items(): st.session_state[k] = v
                 st.rerun()
-
         col_a, col_b = st.columns(2)
         with col_a:
             st.subheader("Project Details")
-            p_type = st.selectbox("Project type", [
-                "Residential building","Commercial tower","Industrial facility",
-                "Bridge / infrastructure","Road / pavement","Marine / coastal",
-                "Underground / basement","Precast factory","Water treatment plant",
-            ], key="p_type")
-            p_env  = st.selectbox("Environment / exposure", [
-                "Normal interior dry","Exterior humid","Coastal / marine",
-                "Underground / soil contact","Chemical / industrial",
-                "High temperature Gulf","Freeze-thaw cycles",
-            ], key="p_env")
-            p_load = st.selectbox("Load type", [
-                "Normal structural","Heavy industrial","Dynamic / seismic",
-                "Pre-stressed","Light / non-structural",
-            ], key="p_load")
-            p_vol  = st.selectbox("Estimated volume", [
-                "Small <50 m³","Medium 50–500 m³","Large 500–5000 m³","Mega >5000 m³",
-            ], key="p_vol")
-            p_spec = st.text_input("Special requirements",
-                placeholder="e.g. Waterproof, high early strength...", key="p_spec")
+            p_type = st.selectbox("Project type", ["Residential building","Commercial tower","Industrial facility","Bridge / infrastructure","Road / pavement","Marine / coastal","Underground / basement","Precast factory","Water treatment plant"], key="p_type")
+            p_env  = st.selectbox("Environment / exposure", ["Normal interior dry","Exterior humid","Coastal / marine","Underground / soil contact","Chemical / industrial","High temperature Gulf","Freeze-thaw cycles"], key="p_env")
+            p_load = st.selectbox("Load type", ["Normal structural","Heavy industrial","Dynamic / seismic","Pre-stressed","Light / non-structural"], key="p_load")
+            p_vol  = st.selectbox("Estimated volume", ["Small <50 m³","Medium 50–500 m³","Large 500–5000 m³","Mega >5000 m³"], key="p_vol")
+            p_spec = st.text_input("Special requirements", placeholder="e.g. Waterproof, high early strength...", key="p_spec")
         with col_b:
             st.subheader("Describe Your Project")
-            p_desc = st.text_area("Project description", height=130,
-                placeholder="e.g. 40-floor tower in Dubai Marina, XS1 exposure, C50 columns...", key="p_desc")
-            p_q    = st.text_area("Or ask directly", height=90,
-                placeholder="e.g. What grade for a deep basement in Abu Dhabi marine soil?", key="p_q")
-
+            p_desc = st.text_area("Project description", height=130, placeholder="e.g. 40-floor tower in Dubai Marina, XS1 exposure, C50 columns...", key="p_desc")
+            p_q    = st.text_area("Or ask directly", height=90, placeholder="e.g. What grade for a deep basement in Abu Dhabi marine soil?", key="p_q")
         if st.button("⚡ Recommend product (streaming)", type="primary", key="prod_run"):
             if need_key(): pass
-            elif not p_desc and not p_q:
-                st.error("Describe your project or ask a direct question.")
+            elif not p_desc and not p_q: st.error("Describe your project or ask a direct question.")
             else:
-                sys_p = (
-                    f"You are a senior technical specialist for a concrete manufacturer in {region}. "
-                    f"Be concise. Provide: 1) Recommended product & grade, 2) Technical justification, "
-                    f"3) Key performance properties, 4) Durability notes, 5) Alternatives, 6) Application tips."
-                )
-                usr_p = p_q if p_q else (
-                    f"Region: {region} | Project: {p_type} | Env: {p_env} | Load: {p_load} | Vol: {p_vol} | "
-                    f"Special: {p_spec or 'None'}\nDescription: {p_desc}"
-                )
+                sys_p = (f"You are a senior technical specialist for a concrete manufacturer in {region}. Be concise. Provide: 1) Recommended product & grade, 2) Technical justification, 3) Key performance properties, 4) Durability notes, 5) Alternatives, 6) Application tips.")
+                usr_p = p_q if p_q else (f"Region: {region} | Project: {p_type} | Env: {p_env} | Load: {p_load} | Vol: {p_vol} | Special: {p_spec or 'None'}\nDescription: {p_desc}")
                 with st.spinner("Connecting…"):
                     result, used_model = call_openrouter_fast("Product", sys_p, usr_p)
                 if result:
                     short = used_model.split("/")[-1].replace(":free","")
-                    st.markdown(f"<div class='verdict-pass'>✅ Recommendation ready — <code>{short}</code></div>",
-                                unsafe_allow_html=True)
+                    st.markdown(f"<div class='verdict-pass'>✅ Recommendation ready — <code>{short}</code></div>", unsafe_allow_html=True)
                     st.markdown(render_result(result, "Product Recommendation", short), unsafe_allow_html=True)
                     st.download_button("⬇ Download .txt", data=result, file_name="product_recommendation.txt")
-                    st.session_state.prod_history.append({
-                        "title": (p_q or p_desc)[:60], "rec": result,
-                        "date": ts(), "model": short,
-                    })
+                    st.session_state.prod_history.append({"title": (p_q or p_desc)[:60], "rec": result, "date": ts(), "model": short})
                 else:
                     st.error("All models failed. Wait 30 sec and retry.")
-
     with tab_hist:
         _, col_h2 = st.columns([5, 1])
         with col_h2:
-            if st.button("🗑 Clear", key="prod_clrhist"):
-                st.session_state.prod_history = []; st.rerun()
+            if st.button("🗑 Clear", key="prod_clrhist"): st.session_state.prod_history = []; st.rerun()
         if not st.session_state.prod_history:
             st.info("No recommendation history yet.")
         for i, item in enumerate(reversed(st.session_state.prod_history)):
@@ -1488,87 +1211,61 @@ elif st.session_state.active_tab == "Product":
                 real = len(st.session_state.prod_history)-1-i
                 ca, cb = st.columns([1,5])
                 with ca:
-                    if st.button("🗑 Del", key=f"prod_del_{i}"):
-                        st.session_state.prod_history.pop(real); st.rerun()
+                    if st.button("🗑 Del", key=f"prod_del_{i}"): st.session_state.prod_history.pop(real); st.rerun()
                 with cb:
-                    st.download_button("⬇ .txt", data=item["rec"],
-                        file_name="product_rec.txt", key=f"prod_dl_{i}")
+                    st.download_button("⬇ .txt", data=item["rec"], file_name="product_rec.txt", key=f"prod_dl_{i}")
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# DOCS AGENT
-# ══════════════════════════════════════════════════════════════════════════════
+# ── DOCS AGENT ─────────────────────────────────────────────────────────────────
 elif st.session_state.active_tab == "Docs Agent":
     st.title("📄 Docs Agent")
-    st.markdown(f"`{region}` · <span class='badge-model'>llama-3.3-70b · streaming ⚡</span>",
-                unsafe_allow_html=True)
-
+    st.markdown(f"`{region}` · <span class='badge-model'>llama-3.3-70b · streaming ⚡</span>", unsafe_allow_html=True)
     tab_new, tab_hist = st.tabs(["📝 Generate", "📋 History"])
-
     with tab_new:
         with st.expander("💡 Load example — QC Test Report (failed batch)", expanded=False):
             if st.button("⚡ Load example", key="docs_load_ex"):
-                st.session_state["d_co"]           = DOCS_EXAMPLE["d_co"]
-                st.session_state["d_notes"]        = DOCS_EXAMPLE["d_notes"]
+                st.session_state["d_co"] = DOCS_EXAMPLE["d_co"]
+                st.session_state["d_notes"] = DOCS_EXAMPLE["d_notes"]
                 st.session_state["_docs_ex_fields"] = DOCS_EXAMPLE["fields"]
                 st.rerun()
-
         col_a, col_b = st.columns(2)
         with col_a:
             st.subheader("Document Settings")
             d_type = st.selectbox("Document type", list(DOC_FIELDS.keys()), key="d_type")
             d_co   = st.text_input("Company name", placeholder="Your company name", key="d_co")
             st.subheader("Field Values")
-            fields    = DOC_FIELDS.get(d_type, [])
+            fields = DOC_FIELDS.get(d_type, [])
             field_vals = {}
-            ex_fields  = st.session_state.pop("_docs_ex_fields", None)
+            ex_fields = st.session_state.pop("_docs_ex_fields", None)
             for f in fields:
                 fkey = f"df_{f.replace(' ','_')}"
                 if ex_fields is not None and d_type == "QC test report":
                     st.session_state[fkey] = ex_fields.get(f, "")
                 field_vals[f] = st.text_input(f, key=fkey)
             d_notes = st.text_area("Additional notes", placeholder="Extra context...", key="d_notes")
-
         with col_b:
             st.subheader("Generated Document")
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("⚡ Generate document (streaming)", type="primary", key="docs_run"):
                 if need_key(): pass
                 else:
-                    sys_p = (
-                        f"You are a technical documentation specialist for concrete manufacturing in {region}. "
-                        f"Standards: {', '.join(stds)}. Be concise and professional. "
-                        f"Generate a standards-compliant {d_type}. "
-                        f"Structure: Header → Purpose → Data Table → Results → Remarks → Signature."
-                    )
-                    today  = datetime.now().strftime("%d/%m/%Y")
+                    sys_p = (f"You are a technical documentation specialist for concrete manufacturing in {region}. Standards: {', '.join(stds)}. Be concise and professional. Generate a standards-compliant {d_type}. Structure: Header → Purpose → Data Table → Results → Remarks → Signature.")
+                    today = datetime.now().strftime("%d/%m/%Y")
                     filled = "\n".join(f"{k}: {v}" for k, v in field_vals.items() if v)
-                    usr_p  = (
-                        f"Generate a {d_type} for: {d_co or '[Company]'} — Date: {today} — Region: {region}\n"
-                        f"Fields:\n{filled or '(none provided)'}\nNotes: {d_notes or 'None'}"
-                    )
+                    usr_p = (f"Generate a {d_type} for: {d_co or '[Company]'} — Date: {today} — Region: {region}\nFields:\n{filled or '(none provided)'}\nNotes: {d_notes or 'None'}")
                     with st.spinner("Connecting…"):
                         result, used_model = call_openrouter_fast("Docs Agent", sys_p, usr_p)
                     if result:
                         short = used_model.split("/")[-1].replace(":free","")
-                        st.markdown(f"<div class='verdict-pass'>✅ Document generated — <code>{short}</code></div>",
-                                    unsafe_allow_html=True)
+                        st.markdown(f"<div class='verdict-pass'>✅ Document generated — <code>{short}</code></div>", unsafe_allow_html=True)
                         st.markdown(render_result(result, f"Document: {d_type}", short), unsafe_allow_html=True)
-                        st.download_button("⬇ Download .txt", data=result,
-                            file_name=f"{d_type.replace(' ','_')}_{today.replace('/','-')}.txt")
-                        st.session_state.docs_history.append({
-                            "type": d_type,
-                            "title": f"{d_type} — {d_co or '[Company]'} — {today}",
-                            "content": result, "date": ts(), "model": short,
-                        })
+                        st.download_button("⬇ Download .txt", data=result, file_name=f"{d_type.replace(' ','_')}_{today.replace('/','-')}.txt")
+                        st.session_state.docs_history.append({"type": d_type, "title": f"{d_type} — {d_co or '[Company]'} — {today}", "content": result, "date": ts(), "model": short})
                     else:
                         st.error("All models failed. Wait 30 sec and retry.")
-
     with tab_hist:
         _, col_h2 = st.columns([5, 1])
         with col_h2:
-            if st.button("🗑 Clear", key="docs_clrhist"):
-                st.session_state.docs_history = []; st.rerun()
+            if st.button("🗑 Clear", key="docs_clrhist"): st.session_state.docs_history = []; st.rerun()
         if not st.session_state.docs_history:
             st.info("No saved documents yet.")
         for i, item in enumerate(reversed(st.session_state.docs_history)):
@@ -1578,57 +1275,23 @@ elif st.session_state.active_tab == "Docs Agent":
                 real = len(st.session_state.docs_history)-1-i
                 ca, cb = st.columns([1,5])
                 with ca:
-                    if st.button("🗑 Del", key=f"docs_del_{i}"):
-                        st.session_state.docs_history.pop(real); st.rerun()
+                    if st.button("🗑 Del", key=f"docs_del_{i}"): st.session_state.docs_history.pop(real); st.rerun()
                 with cb:
-                    st.download_button("⬇ .txt", data=item["content"],
-                        file_name=f"doc_{i}.txt", key=f"docs_dl_{i}")
+                    st.download_button("⬇ .txt", data=item["content"], file_name=f"doc_{i}.txt", key=f"docs_dl_{i}")
 
-# ══════════════════════════════════════════════════════════════════════════════
-# FOOTER
-# ══════════════════════════════════════════════════════════════════════════════
+# ── FOOTER ─────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 .cm-footer {
-    margin-top: 60px;
-    padding: 28px 0 18px 0;
+    margin-top: 60px; padding: 28px 0 18px 0;
     border-top: 1px solid rgba(200,169,110,0.25);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
 }
-.cm-footer-brand {
-    font-family: 'Syne', sans-serif;
-    font-size: 15px;
-    font-weight: 700;
-    color: #1C1E26;
-    letter-spacing: 0.04em;
-}
-.cm-footer-name {
-    font-family: 'Syne', sans-serif;
-    font-size: 13px;
-    font-weight: 600;
-    color: #8B6030;
-    letter-spacing: 0.06em;
-}
-.cm-footer-divider {
-    width: 40px;
-    height: 2px;
-    background: linear-gradient(90deg, #C8A96E, #8B6030);
-    border-radius: 2px;
-    margin: 2px auto;
-}
-.cm-footer-copy {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    color: #9A8F7E;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
+.cm-footer-brand { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: #1C1E26; letter-spacing: 0.04em; }
+.cm-footer-name  { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; color: #8B6030; letter-spacing: 0.06em; }
+.cm-footer-divider { width: 40px; height: 2px; background: linear-gradient(90deg, #C8A96E, #8B6030); border-radius: 2px; margin: 2px auto; }
+.cm-footer-copy { font-family: 'DM Mono', monospace; font-size: 10px; color: #9A8F7E; letter-spacing: 0.08em; text-transform: uppercase; }
 </style>
-
 <div class="cm-footer">
     <div class="cm-footer-brand">🏭 ConcreteMind AI Platform</div>
     <div class="cm-footer-divider"></div>
